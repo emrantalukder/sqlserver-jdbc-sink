@@ -1,0 +1,90 @@
+curl -X PUT \
+     -H "Content-Type: application/json" \
+     http://localhost:8083/connectors/source-datagen-01/config
+     -d '{
+        "connector.class": "io.confluent.kafka.connect.datagen.DatagenConnector",
+        "kafka.topic": "source-topic-01",
+        "quickstart": "users",
+        "key.converter": "org.apache.kafka.connect.storage.StringConverter",
+        "value.converter": "io.confluent.connect.avro.AvroConverter",
+        "max.interval": 1000,
+        "iterations": 10000000,
+        "value.converter.schema.registry.url": "http://schema-registry:8081"
+}'
+
+###
+
+curl -X PUT \
+     -H "Content-Type: application/json" \
+     http://localhost:8083/connectors/sink-mssql-01/config
+     -d '{
+        "connector.class": "io.confluent.connect.jdbc.JdbcSinkConnector",
+        "tasks.max": "1",
+        "topics": "source-topic-01",
+        "connection.url": "jdbc:sqlserver://db:1433;databaseName=emrandb",
+        "connection.user": "SA",
+        "connection.password": "YourStrong!Passw0rd",
+        "auto.create": "true",
+        "auto.evolve": "true",
+        "insert.mode": "upsert",
+        "pk.mode": "record_value",
+        "pk.fields": "userid",
+        "value.converter": "io.confluent.connect.avro.AvroConverter",
+        "value.converter.schema.registry.url": "http://schema-registry:8081"
+}'
+
+###
+@KAFKA_BOOTSTRAP_SERVERS={{$dotenv KAFKA_BOOTSTRAP_SERVERS}}
+@KAFKA_API_KEY={{$dotenv KAFKA_API_KEY}}
+@KAFKA_API_SECRET={{$dotenv KAFKA_API_SECRET}}
+@SCHEMA_REGISTRY_URL={{$dotenv SCHEMA_REGISTRY_URL}}
+@SCHEMA_REGISTRY_API_KEY={{$dotenv SCHEMA_REGISTRY_API_KEY}}
+@SCHEMA_REGISTRY_API_SECRET={{$dotenv SCHEMA_REGISTRY_API_SECRET}}
+
+
+curl -X PUT \
+     -H "Content-Type: application/json" \
+     http://localhost:8083/connectors/source-datagen-02/config
+     -d '{
+        "connector.class": "io.confluent.kafka.connect.datagen.DatagenConnector",
+        "kafka.topic": "source-topic-02",
+        "quickstart": "credit_cards",
+        "key.converter": "org.apache.kafka.connect.storage.StringConverter",
+        "value.converter": "io.confluent.connect.avro.AvroConverter",
+        "max.interval": 1000,
+        "iterations": 10000000,
+        "value.converter.schema.registry.url": "{{SCHEMA_REGISTRY_URL}}",
+        "value.converter.basic.auth.credentials.source": "USER_INFO",
+        "value.converter.basic.auth.user.info": "{{SCHEMA_REGISTRY_API_KEY}}:{{SCHEMA_REGISTRY_API_SECRET}}",
+        "producer.override.bootstrap.servers": "{{KAFKA_BOOTSTRAP_SERVERS}}",
+        "producer.override.security.protocol": "SASL_SSL",
+        "producer.override.sasl.mechanism": "PLAIN",
+        "producer.override.sasl.jaas.config": "org.apache.kafka.common.security.plain.PlainLoginModule required username=\"{{KAFKA_API_KEY}}\" password=\"{{KAFKA_API_SECRET}}\";"
+}'
+
+###
+
+curl -X PUT \
+     -H "Content-Type: application/json" \
+     http://localhost:8083/connectors/sink-mssql-02/config
+     -d '{
+        "connector.class": "io.confluent.connect.jdbc.JdbcSinkConnector",
+        "tasks.max": "1",
+        "topics": "source-topic-02",
+        "connection.url": "jdbc:sqlserver://db:1433;databaseName=emrandb",
+        "connection.user": "SA",
+        "connection.password": "YourStrong!Passw0rd",
+        "auto.create": "true",
+        "auto.evolve": "true",
+        "insert.mode": "upsert",
+        "pk.mode": "record_value",
+        "pk.fields": "card_id",
+        "value.converter": "io.confluent.connect.avro.AvroConverter",
+        "value.converter.schema.registry.url": "{{SCHEMA_REGISTRY_URL}}",
+        "value.converter.basic.auth.credentials.source": "USER_INFO",
+        "value.converter.basic.auth.user.info": "{{SCHEMA_REGISTRY_API_KEY}}:{{SCHEMA_REGISTRY_API_SECRET}}",
+        "consumer.override.bootstrap.servers": "{{KAFKA_BOOTSTRAP_SERVERS}}",
+        "consumer.override.security.protocol": "SASL_SSL",
+        "consumer.override.sasl.mechanism": "PLAIN",
+        "consumer.override.sasl.jaas.config": "org.apache.kafka.common.security.plain.PlainLoginModule required username=\"{{KAFKA_API_KEY}}\" password=\"{{KAFKA_API_SECRET}}\";"
+}'
